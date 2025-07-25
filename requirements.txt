@@ -1,0 +1,14 @@
+# Colab (in July 2025) uses Python 3.11.13.
+torch==2.6
+torchsummary==1.5.1
+torchvision==0.21.0
+tqdm==4.67.1
+numpy==2.0.2
+scipy>=1.16.0
+opencv-python>=4.12
+torchxrayvision==1.3.5
+torchinfo
+ipykernel
+matplotlib
+pandas
+pillow
