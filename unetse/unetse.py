@@ -27,7 +27,6 @@ class SEBlock(nn.Module):
         # Excitation
         return x * se_weight
 
-
 class ConvBlock(nn.Module):
     """
     Residual convolutional block: two conv layers + BN + ReLU,
@@ -133,11 +132,11 @@ if __name__ == "__main__":
     preds = model(x)
     print(f"Input shape: {x.shape}, Output shape: {preds.shape}")
     print(f"Number of parameters: {sum(p.numel() for p in model.parameters())}")
-    #print(torchinfo.summary(model, input_size=(1, 1, 1024, 1024), col_names=["input_size", "output_size", "num_params"]))
+    import torchinfo
+    torchinfo.summary(model, input_size=(2, 1, 512, 512), col_names=["input_size", "output_size", "num_params"])
 
     import matplotlib.pyplot as plt
     plt.imshow(preds[0, 0].detach().cpu().numpy(), cmap='gray')
     plt.show()
-    import torchinfo
-    print(torchinfo.summary(model, input_size=(8, 1, 256, 256)))
+    
 

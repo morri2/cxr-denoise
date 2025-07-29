@@ -12,3 +12,5 @@ ipykernel
 matplotlib
 pandas
 pillow
+scikit-learn
+torchmetrics
