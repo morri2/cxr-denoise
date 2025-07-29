@@ -45,9 +45,9 @@ def evaluate_metrics_on_dataloader(model, dataloader, preproc, noiser, device, m
 
     model.train()
     return {
-        "SSIM": ssim_sum / total_samples,
-        "PSNR": psnr_sum / total_samples,
-        "L1": l1_sum / (total_samples * clean.numel() / B)
+        "ssim": ssim_sum / total_samples,
+        "psnr": psnr_sum / total_samples,
+        "l1": l1_sum / (total_samples * clean.numel() / B)
     }
 
 
