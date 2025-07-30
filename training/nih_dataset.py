@@ -117,7 +117,7 @@ class NIH_Dataset(Dataset):
                 if img.ndim > 2: # for the rare rgba images in the dataset
                     img = np.mean(img, axis=2).astype(np.uint8)
                 
-                assert self.out_size != img.shape[-1], "Can't preload to RAM if self.out_size != img.shape[-1]!"
+                assert self.out_size == img.shape[-1], "Can't preload to RAM if self.out_size != img.shape[-1]!"
                 # TODO: fix - low prio
 
                 self.ram_imgs[idx] = img
