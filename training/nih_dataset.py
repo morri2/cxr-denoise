@@ -27,6 +27,8 @@ class NIH_Dataset(Dataset):
         out_size: size of the image, if !=1024, image will be resized with interpolation
         img_max_val: Maximum intensity value in the raw image
         no_lbls: If True, only the image is returned
+        preload_to_ram: Loads the full dataset to ram, requires >32gb ram
+        to_device: .to(device) on the images before preprocessing
     """
 
     def __init__(self,
@@ -41,7 +43,8 @@ class NIH_Dataset(Dataset):
                  out_size=512, # will bi-lerp to resize - only for torch
                  img_max_val=255.0,
                  no_lbls=False,
-                 preload_to_ram=False # Warning! Not advisable for machines with <32gb RAM.
+                 preload_to_ram=False, # Warning! Not advisable for machines with <32gb RAM.
+                 to_device=None,
                  ):
 
         super(NIH_Dataset, self).__init__()
@@ -55,6 +58,8 @@ class NIH_Dataset(Dataset):
         self.out_array_type = out_array_type
         self.no_lbls = no_lbls
         self.dataset_root = dataset_root
+        self.preload_to_ram = preload_to_ram
+        self.to_device
 
         self.pathologies = [
             "Atelectasis", "Consolidation", "Infiltration",
@@ -102,16 +107,20 @@ class NIH_Dataset(Dataset):
         self.ram_imgs = None
         if preload_to_ram:
             print("  Loading to RAM... ")
+            self.ram_imgs = np.empty((len(self.labels), 1, self.out_size, self.out_size), dtype=np.uint8)
             total_bytes = 0
-            self.ram_imgs = []
+            
             for idx in range(len(self.labels)):
                 img_path = os.path.join(self.dataset_root, self.img_paths[idx])
                 img = imread(img_path).astype(np.uint8)
 
                 if img.ndim > 2: # for the rare rgba images in the dataset
                     img = np.mean(img, axis=2).astype(np.uint8)
+                
+                assert self.out_size != img.shape[-1], "Can't preload to RAM if self.out_size != img.shape[-1]!"
+                # TODO: fix - low prio
 
-                self.ram_imgs.append(img)
+                self.ram_imgs[idx] = img
                 total_bytes += img.nbytes
             
             print(f"  Done! Using {total_bytes / (1024**3):.1f} GB of RAM")
@@ -132,21 +141,27 @@ class NIH_Dataset(Dataset):
             if img.ndim > 2: # for the rare rgba images in the dataset
                 img = np.mean(img, axis=2)
 
+            img = img[None, :, :]  # add channel dim
+
         else: 
             # Use image from ram
             img = self.ram_imgs[idx].astype(np.float32) # imgs are saved as uin8s to save memory
-
-        # Normalize
-        img = (img / self.img_max_val) * (self.out_max - self.out_min) + self.out_min
-        img = img[None, :, :]  # add channel dim
-
+        
         lbl = self.labels[idx]
 
         img = torch.from_numpy(img)
         lbl = torch.from_numpy(lbl)
+
+        if self.to_device:
+            img = img.to(device=device)
+            lbl = img.to(device=device)
+
+        # Normalize
+        img = (img / self.img_max_val) * (self.out_max - self.out_min) + self.out_min
         
-        if self.out_size != img.shape[-1]: # resize only if not the assumed size
-            img = F.interpolate(img, (self.out_size, self.out_size),mode='bilinear')
+        if not self.preload_to_ram:
+            if self.out_size != img.shape[-1]: # resize only if not the assumed size
+                img = F.interpolate(img, (self.out_size, self.out_size),mode='bilinear')
 
         if self.out_array_type == "np":
             img = img.numpy()
@@ -155,9 +170,6 @@ class NIH_Dataset(Dataset):
         return img if self.no_lbls else (img, lbl)
         
     
-
-
-
 def extract_random_patch(image, patch_size=64):
     """
     Extract a random patch from a single image tensor of shape (1, H, W).

@@ -7,15 +7,20 @@ import os
 from torchvision.transforms.functional import to_pil_image
 from torchvision.utils import make_grid
 
-from torchmetrics.functional import structural_similarity_index_measure as ssim
-import torch.nn.functional as F
+from torchmetrics.image import PeakSignalNoiseRatio
+from torchmetrics.image import StructuralSimilarityIndexMeasure
+from torchmetrics import MeanAbsoluteError
+
+from torchmetrics import MeanAbsoluteError
+from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
+
 
 def evaluate_metrics_on_dataloader(model, dataloader, preproc, noiser, device, max_batches=None):
     model.eval()
-    ssim_sum = 0.0
-    psnr_sum = 0.0
-    l1_sum = 0.0
-    total_samples = 0
+
+    psnr_metric = PeakSignalNoiseRatio(data_range=1.0).to(device)
+    ssim_metric = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
+    l1_metric = MeanAbsoluteError().to(device)
 
     with torch.no_grad():
         for batch_idx, batch in enumerate(dataloader):
@@ -23,33 +28,22 @@ def evaluate_metrics_on_dataloader(model, dataloader, preproc, noiser, device, m
             clean = preproc(batch)
             noisy = noiser(clean)
             output = model(noisy)
+            output = output.clamp(0.0, 1.0)
 
-            B = clean.size(0)
-            total_samples += B
-
-            # L1
-            l1_sum += F.l1_loss(output, clean, reduction='sum').item()
-
-            # PSNR = 10 * log10(1 / MSE_per_pixel)
-            mse = F.mse_loss(output, clean, reduction='sum').item()
-            psnr_sum += 10 * torch.log10(torch.tensor(1.0) / (mse / (B * clean.numel() / B))).item()
-
-            # SSIM (expects (N,C,H,W) and values in [0,1])
-            ssim_res = ssim(output, clean, data_range=1.0)
-            assert type(ssim_res) is torch.Tensor
-            ssim_batch = ssim_res.item()
-            ssim_sum += ssim_batch * B
+            psnr_metric.update(output, clean)
+            ssim_metric.update(output, clean)
+            l1_metric.update(output, clean)
 
             if max_batches and batch_idx + 1 >= max_batches:
                 break
 
     model.train()
-    return {
-        "ssim": ssim_sum / total_samples,
-        "psnr": psnr_sum / total_samples,
-        "l1": l1_sum / (total_samples * clean.numel() / B)
-    }
 
+    return {
+        "ssim": ssim_metric.compute().item(),
+        "psnr": psnr_metric.compute().item(),
+        "l1": l1_metric.compute().item(),
+    }
 
 def save_cxr_triplet(clean, noisy, output, img_name, out_dir="saved_out"):
     os.makedirs(out_dir, exist_ok=True)
