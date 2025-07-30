@@ -40,7 +40,9 @@ class NIH_Dataset(Dataset):
                  out_max=1.0,
                  out_size=512, # will bi-lerp to resize - only for torch
                  img_max_val=255.0,
-                 no_lbls=False):
+                 no_lbls=False,
+                 preload_to_ram=False # Warning! Not advisable for machines with <32gb RAM.
+                 ):
 
         super(NIH_Dataset, self).__init__()
 
@@ -97,6 +99,22 @@ class NIH_Dataset(Dataset):
         ], axis=1)
         print("NIH CXR Dataset ({}x{}), split='{}' loaded with {} samples".format(out_size, out_size, split, len(self.labels)))
 
+        self.ram_imgs = None
+        if preload_to_ram:
+            self.ram_imgs = []
+            for idx in range(len(self.labels)):
+                img_path = os.path.join(self.dataset_root, self.img_paths[idx])
+                img = imread(img_path).astype(np.uint8)
+
+                if img.ndim > 2: # for the rare rgba images in the dataset
+                    img = np.mean(img, axis=2).astype(np.uint8)
+
+                self.ram_imgs.append(img)
+                total_bytes += img.nbytes
+            
+            print(f"Dataset loaded to RAM ({total_bytes / (1024**3):.1f} GB)")
+
+
     def string(self):
         return f"{self.__class__.__name__} num_samples={len(self)} views={self.views} unique_patients={self.split}"
 
@@ -104,11 +122,17 @@ class NIH_Dataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        img_path = os.path.join(self.dataset_root, self.img_paths[idx])
-        img = imread(img_path).astype(np.float32)
+        if self.ram_imgs is None:
+            # Load image from disk
+            img_path = os.path.join(self.dataset_root, self.img_paths[idx])
+            img = imread(img_path).astype(np.float32)
 
-        if img.ndim > 2: # for the rare rgba images in the dataset
-            img = np.mean(img, axis=2)
+            if img.ndim > 2: # for the rare rgba images in the dataset
+                img = np.mean(img, axis=2)
+
+        else: 
+            # Use image from ram
+            img = self.ram_imgs[idx].astype(np.float32) # imgs are saved as uin8s to save memory
 
         # Normalize
         img = (img / self.img_max_val) * (self.out_max - self.out_min) + self.out_min
@@ -116,7 +140,6 @@ class NIH_Dataset(Dataset):
 
         lbl = self.labels[idx]
 
-        
         img = torch.from_numpy(img)
         lbl = torch.from_numpy(lbl)
         
