@@ -101,6 +101,8 @@ class NIH_Dataset(Dataset):
 
         self.ram_imgs = None
         if preload_to_ram:
+            print("  Loading to RAM... ")
+            total_bytes = 0
             self.ram_imgs = []
             for idx in range(len(self.labels)):
                 img_path = os.path.join(self.dataset_root, self.img_paths[idx])
@@ -112,7 +114,7 @@ class NIH_Dataset(Dataset):
                 self.ram_imgs.append(img)
                 total_bytes += img.nbytes
             
-            print(f"Dataset loaded to RAM ({total_bytes / (1024**3):.1f} GB)")
+            print(f"  Done! Using {total_bytes / (1024**3):.1f} GB of RAM")
 
 
     def string(self):
@@ -151,6 +153,7 @@ class NIH_Dataset(Dataset):
             lbl = lbl.numpy()
         
         return img if self.no_lbls else (img, lbl)
+        
     
 
 
