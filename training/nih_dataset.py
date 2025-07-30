@@ -59,7 +59,7 @@ class NIH_Dataset(Dataset):
         self.no_lbls = no_lbls
         self.dataset_root = dataset_root
         self.preload_to_ram = preload_to_ram
-        self.to_device
+        self.to_device = to_device
 
         self.pathologies = [
             "Atelectasis", "Consolidation", "Infiltration",
@@ -153,8 +153,8 @@ class NIH_Dataset(Dataset):
         lbl = torch.from_numpy(lbl)
 
         if self.to_device:
-            img = img.to(device=device)
-            lbl = img.to(device=device)
+            img = img.to(device=self.to_device)
+            lbl = img.to(device=self.to_device)
 
         # Normalize
         img = (img / self.img_max_val) * (self.out_max - self.out_min) + self.out_min
