@@ -74,18 +74,20 @@ class ResUNetSE(nn.Module):
     def __init__(self, in_channels=1, out_channels=1, features=[64, 128, 256, 512], se_reduction=16):
         if type(features) is int:
             features = [features, features * 2, features * 4, features * 8]
+        
+        use_se = se_reduction is not None
 
         super(ResUNetSE, self).__init__()
         # Encoder
         self.downs = nn.ModuleList()
         self.pools = nn.ModuleList()
         for feat in features:
-            self.downs.append(ConvBlock(in_channels, feat, use_se=True, se_reduction=se_reduction))
+            self.downs.append(ConvBlock(in_channels, feat, use_se=use_se, se_reduction=se_reduction))
             self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
             in_channels = feat
 
         # Bottleneck
-        self.bottleneck = ConvBlock(features[-1], features[-1] * 2, use_se=True, se_reduction=se_reduction)
+        self.bottleneck = ConvBlock(features[-1], features[-1] * 2, use_se=use_se, se_reduction=se_reduction)
 
         # Decoder
         self.ups = nn.ModuleList()
@@ -93,7 +95,7 @@ class ResUNetSE(nn.Module):
         rev_features = features[::-1]
         for feat in rev_features:
             self.ups.append(nn.ConvTranspose2d(feat * 2, feat, kernel_size=2, stride=2))
-            self.up_convs.append(ConvBlock(feat * 2, feat, use_se=True, se_reduction=se_reduction))
+            self.up_convs.append(ConvBlock(feat * 2, feat, use_se=use_se, se_reduction=se_reduction))
 
         # Final output
         self.final_conv = nn.Conv2d(features[0], out_channels, kernel_size=1)

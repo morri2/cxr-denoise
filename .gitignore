@@ -2,3 +2,4 @@
 data/*
 training/checkpoints/*
 **/__pycache__/
+training/outputs/*

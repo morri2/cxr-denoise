@@ -45,9 +45,7 @@ def evaluate_metrics_on_dataloader(model, dataloader, preproc, noiser, device, m
         "l1": l1_metric.compute().item(),
     }
 
-def save_cxr_triplet(clean, noisy, output, img_name, out_dir="saved_out"):
-    os.makedirs(out_dir, exist_ok=True)
-
+def save_cxr_triplet(clean, noisy, output, img_out_path):
     # Ensure inputs are (C, 1, H, W)
     def preprocess(tensor):
         if tensor.dim() == 3:  # (1, H, W)
@@ -67,5 +65,5 @@ def save_cxr_triplet(clean, noisy, output, img_name, out_dir="saved_out"):
     grid = make_grid(full_stack, nrow=clean.size(0), padding=5)
 
     img = to_pil_image(grid)
-    img.save(os.path.join(out_dir, img_name))
+    img.save(img_out_path)
 
