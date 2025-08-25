@@ -38,6 +38,9 @@ class ROCs:
 
     def total_auc_score(self):
         return roc_auc_score(self.labels, self.preds, average='micro')
+    
+    def avg_auc_score(self):
+        return roc_auc_score(self.labels, self.preds, average='macro')
 
 class NihTester:
     """
@@ -45,7 +48,7 @@ class NihTester:
     downscale: "2x2mean" / "scale_nearest" / "scale_bilinear" / "keep"
     
     """
-    def __init__(self, cxr_label_dataset: Dataset, device="cuda", downscale="keep"):
+    def __init__(self, cxr_label_dataset: Dataset, device=torch.device("cuda"), downscale="keep"):
         self.device = device
         self.diagnosis_model = xrv.models.ResNet(weights="resnet50-res512-all").to(self.device)
       
@@ -65,7 +68,7 @@ class NihTester:
             print("Invalid downscale settings!")
 
 
-    def rocs(self, preproc: nn.Module = nn.Identity()):
+    def rocs(self, model, preproc: nn.Module = nn.Identity()):
         
         all_outputs = []
         all_labels = []
@@ -134,9 +137,9 @@ class DiagnosticLoss(nn.Module):
         outputs = outputs.to(self.device)
         targets = targets.to(self.device)
 
-        if outputs.shape[-1] == 1024:
+        if outputs.shape[-1] == 512:
             outputs = F.avg_pool2d(outputs, 2)
-        if targets.shape[-1] == 1024:
+        if targets.shape[-1] == 512:
             targets = F.avg_pool2d(targets, 2)
 
         with torch.no_grad():
