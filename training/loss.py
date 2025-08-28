@@ -15,7 +15,7 @@ class SpatialLoss(nn.Module):
         l1_loss = self.l1(pred, target)
         spatial_loss = self.mse_weight * mse_loss + self.l1_weight * l1_loss
         return spatial_loss
-
+    
 
 class FrequencyLoss(nn.Module):
     """Loss in the frequency domain using FFT."""
