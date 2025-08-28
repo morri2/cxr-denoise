@@ -1,0 +1,4 @@
+Model,PSNR,SSIM,L1
+No Denoising,33.2132,0.7889,0.014479
+Median Filter (5x5),35.4663,0.9421,0.007690
+Median Filter (7x7),34.5355,0.9364,0.008060
