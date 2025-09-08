@@ -10,13 +10,13 @@ class SEBlock(nn.Module):
     Squeeze-and-Excitation (SE) block.
     Applies channel-wise attention to input features.
     """
-    def __init__(self, in_channels, reduction=16):
+    def __init__(self, in_channels, reduction=16, min_reduced_channels=1):
         super(SEBlock, self).__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels // reduction, kernel_size=1, bias=True),
+            nn.Conv2d(in_channels, max(min_reduced_channels, in_channels // reduction), kernel_size=1, bias=True),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels // reduction, in_channels, kernel_size=1, bias=True),
+            nn.Conv2d(max(min_reduced_channels, in_channels // reduction), in_channels, kernel_size=1, bias=True),
             nn.Sigmoid()
         )
 
@@ -26,6 +26,7 @@ class SEBlock(nn.Module):
         se_weight = self.fc(se_weight)
         # Excitation
         return x * se_weight
+    
 class ConvBlock(nn.Module):
     """
     Residual convolutional block: two conv layers + BN + PReLU,
@@ -35,12 +36,12 @@ class ConvBlock(nn.Module):
         super(ConvBlock, self).__init__()
         self.conv = nn.Sequential(
             nn.ReflectionPad2d(1),
-            nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=0, bias=False),
+            nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=0, bias=True),
             nn.BatchNorm2d(out_ch),
             nn.PReLU(),
 
             nn.ReflectionPad2d(1),
-            nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=0, bias=False),
+            nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=0, bias=True),
             nn.BatchNorm2d(out_ch),
             nn.PReLU()
         )
@@ -81,10 +82,10 @@ class ResUNetSE(nn.Module):
         # Encoder
         self.downs = nn.ModuleList()
         self.pools = nn.ModuleList()
-        for feat in features:
-            self.downs.append(ConvBlock(in_channels, feat, use_se=use_se, se_reduction=se_reduction))
-            self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
-            in_channels = feat
+        for fs in features:
+            self.downs.append(ConvBlock(in_channels, fs, use_se=use_se, se_reduction=se_reduction))
+            self.pools.append(nn.AvgPool2d(kernel_size=2, stride=2))
+            in_channels = fs
 
         # Bottleneck
         self.bottleneck = ConvBlock(features[-1], features[-1] * 2, use_se=use_se, se_reduction=se_reduction)
@@ -93,9 +94,9 @@ class ResUNetSE(nn.Module):
         self.ups = nn.ModuleList()
         self.up_convs = nn.ModuleList()
         rev_features = features[::-1]
-        for feat in rev_features:
-            self.ups.append(nn.ConvTranspose2d(feat * 2, feat, kernel_size=2, stride=2))
-            self.up_convs.append(ConvBlock(feat * 2, feat, use_se=use_se, se_reduction=se_reduction))
+        for fs in rev_features:
+            self.ups.append(nn.ConvTranspose2d(fs * 2, fs, kernel_size=2, stride=2))
+            self.up_convs.append(ConvBlock(fs * 2, fs, use_se=use_se, se_reduction=se_reduction))
 
         # Final output
         self.final_conv = nn.Conv2d(features[0], out_channels, kernel_size=1)
