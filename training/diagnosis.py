@@ -55,6 +55,7 @@ class NihTester:
         self.dataloader = DataLoader(cxr_label_dataset, batch_size=16, shuffle=False)
 
         self.downscale = nn.Identity()
+        self.targets = self.diagnosis_model.targets[:14]  # NIH: 14 labels
 
         if downscale == "2x2mean":
             self.downscale = nn.AvgPool2d(2).to(self.device)
@@ -68,7 +69,7 @@ class NihTester:
             print("Invalid downscale settings!")
 
 
-    def rocs(self, model, preproc: nn.Module = nn.Identity()):
+    def rocs(self, model, preproc: nn.Module = nn.Identity(), renorm=True):
         
         all_outputs = []
         all_labels = []
@@ -82,23 +83,30 @@ class NihTester:
         preproc.eval()
 
         with torch.no_grad():
-            for inputs, labels in tqdm(self.dataloader, desc="Making ROCs"):
+            for noisy, labels in tqdm(self.dataloader, desc="Making ROCs"):
 
-                inputs = preproc(inputs.to(preproc_device))
+                noisy = preproc(noisy.to(preproc_device))
+                denoised = model(noisy.to(self.device))
+
+                if renorm:
+                    min = denoised.min().item()
+                    max = denoised.max().item()
+                    denoised = (denoised - min) / (max - min)
                 
+                denoised = self.downscale(denoised.to(self.device))
+                denoised = norm_to_xrv(denoised)
+                denoised, labels = denoised.to(self.device), labels.to(self.device)
+
+                outputs = self.diagnosis_model(denoised)  # NIH has 14 labels
                 
-                inputs = self.downscale(inputs.to(self.device))
+                all_outputs.append(outputs.cpu()[:, :14])
+                all_labels.append(labels.cpu()[:, :14])
 
-                inputs = norm_to_xrv(inputs)
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
-
-                outputs = self.diagnosis_model(inputs)[:, :14]  # NIH has 14 labels
-                all_outputs.append(outputs.cpu())
-                all_labels.append(labels.cpu())
 
         all_outputs, all_labels = torch.cat(all_outputs, dim=0).numpy(), torch.cat(all_labels, dim=0).numpy()
 
-        return ROCs(all_outputs, all_labels, targets=self.diagnosis_model.targets)
+        roc = ROCs(all_outputs, all_labels, targets=self.diagnosis_model.targets[:14])
+        return roc
     
 
 class DiagnosticLoss(nn.Module):
