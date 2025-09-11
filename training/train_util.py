@@ -87,7 +87,7 @@ def evaluate_metrics_on_dataloader(model, dataloader, preproc, noiser, device, m
 
 
 
-def save_cxr_triplet(clean, noisy, output, img_out_path, rescale=False):
+def save_cxr_triplet(clean, noisy, output, img_out_path, rescale=True):
     # Ensure inputs are (C, 1, H, W)
     def preprocess(tensor):
         if tensor.dim() == 3:  # (1, H, W)
