@@ -16,3 +16,4 @@ scikit-learn
 torchmetrics
 piq
 piqa
+ptflops
