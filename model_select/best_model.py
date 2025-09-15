@@ -35,5 +35,5 @@ def select_best_epoch(csv_path, metrics, lower_is_better_flags, use_multiplicati
 if __name__ == "__main__":
     metrics = ["psnr", "ms_ssim", "ms_gmsd"]
     lower_flags = [False, False, True]
-    best_epoch = select_best_epoch("model_select/val_metrics_bc_64_sep10.csv", metrics, lower_flags)
+    best_epoch = select_best_epoch("model_select/val_metrics_bc_16_sep10.csv", metrics, lower_flags)
     print(best_epoch)
